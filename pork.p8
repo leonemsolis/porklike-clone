@@ -7,8 +7,8 @@ function _init()
 	p_ani={240,241,242,243}
 	_upd=update_game
 	_drw=draw_game
-	dirx={-1,1,0,0}
-	diry={0,0,-1,1}
+	dirx={-1,1,0,0,1,1,-1,-1}
+	diry={0,0,-1,1,-1,1,1,-1}
 	startgame()
 end
 
@@ -35,13 +35,21 @@ function startgame()
 	p_mov=nil
 	
 	winds={}
+	talkwnd=nil
 end
 -->8
 --update
 function update_game()
-	do_buffer_button()
-	do_button(button_buffer)
-	button_buffer=-1
+	if talkwnd!=nil then
+		if get_button()==5 then
+			talkwnd.dur=0
+			talkwnd=nil
+		end
+	else
+		do_buffer_button()
+		do_button(button_buffer)
+		button_buffer=-1
+	end
 end
 
 function update_pturn()
@@ -124,6 +132,13 @@ end
 function rectfill2(_x,_y,_w,_h,_c)
 	rectfill(_x,_y,_x+max(_w-1,0),_y+max(_h-1,0),_c)
 end
+
+function oprint8(_t,_x,_y,_c,_c2)
+	for i=1,8 do
+		print(_t,_x+dirx[i],_y+diry[i],_c2)
+	end
+	print(_t,_x,_y,_c)
+end
 -->8
 --gameplay
 
@@ -173,7 +188,8 @@ function trig_bump(tle,destx,desty)
 		mset(destx,desty,1)
 	elseif tle==6 then
 		--sign
-		showmsg("hello world",120)
+--		showmsg("hello world",120)
+		showmsg({"welcome to porklike","","climb the tower","to obtain the","golden kielbasa"})
 	end
 end
 -->8
@@ -196,12 +212,16 @@ function drawwinds()
 		rect(wx+1,wy+1,wx+ww-2,wy+wh-2,6)
 		wx+=4
 		wy+=4
+		
 		clip(wx,wy,ww-8,wh-8)
+		
 		for i=1,#w.txt do
 			local txt=w.txt[i]
 			print(txt,wx,wy,6)
 			wy+=6
 		end
+		
+		clip()
 		if w.dur!=nil then
 			w.dur-=1
 			if w.dur<=0 then
@@ -212,14 +232,21 @@ function drawwinds()
 					del(winds,w)
 				end
 			end
+		else
+			oprint8("❎",wx+ww-15,wy-1+min(sin(time(0)*3)),6,0)
 		end
 	end
 end
 
 function showmsg(txt,dur)
-	local wid=#txt*4+7
-	local w=addwind(63-wid/2,50,wid,13,{txt})
+	local wid=(#txt+2)*4+7
+	local w=addwind(63-wid/2,50,wid,13,{" "..txt})
 	w.dur=dur
+end
+
+function showmsg(txt)
+	talkwnd=addwind(16,50,94,#txt*6+7,txt)
+	talkwnd.button=true
 end
 __gfx__
 000000000000000060666060000000000000000000000000aaaaaaaa00aaa00000aaa00000000000000000000000000000aaa000a0aaa0a0a000000055555550
