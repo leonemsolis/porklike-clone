@@ -3,13 +3,18 @@ version 29
 __lua__
 --main
 function _init()
+	mobs_ani={
+		240,
+		192
+	}
+	
 	t=0
 	p_ani={240,241,242,243}
 	_upd=update_game
 	_drw=draw_game
-	dirx={-1,1,0,0,1,1,-1,-1}
-	diry={0,0,-1,1,-1,1,1,-1}
-	startgame()
+	dir_x={-1,1,0,0,1,1,-1,-1}
+	dir_y={0,0,-1,1,-1,1,1,-1}
+	start_game()
 end
 
 function _update60()
@@ -19,35 +24,37 @@ end
 
 function _draw()
 	_drw()
-	drawwinds()
+	draw_winds()
 end
 
-function startgame()
+function start_game()
 	button_buffer=-1
 	
 	mobs={}
-	addmob(0,2,1)
+	p_mob=add_mob(1,4,5)
+	add_mob(2,6,5)
 	
-	p_x=4
-	p_y=5
-	p_ox=0
-	p_oy=0
-	p_sox=0
-	p_soy=0
+	
+--	p_x=4
+--	p_y=5
+--	p_ox=0
+--	p_oy=0
+--	p_sox=0
+--	p_soy=0
 	p_t=0
-	p_flip=false
-	p_mov=nil
+--	p_flip=false
+--	p_mov=nil
 	
 	winds={}
-	talkwnd=nil
+	talk_wnd=nil
 end
 -->8
 --update
 function update_game()
-	if talkwnd then
+	if talk_wnd then
 		if get_button()==5 then
-			talkwnd.dur=0
-			talkwnd=nil
+			talk_wnd.dur=0
+			talk_wnd=nil
 		end
 	else
 		do_buffer_button()
@@ -60,7 +67,7 @@ function update_pturn()
 	do_buffer_button()
 	p_t=min(p_t+0.125,1)
 	
-	p_mov()
+	p_mob.mov(p_mob,p_t)
 	
 	if p_t==1 then
 		_upd=update_game
@@ -71,20 +78,20 @@ end
 function update_gameover()
 end
 
-function mov_walk()
-	p_ox=p_sox*(1-p_t)
-	p_oy=p_soy*(1-p_t)
+function mov_walk(mob,ani_t)
+	mob.ox=mob.sox*(1-ani_t)
+	mob.oy=mob.soy*(1-ani_t)
 end
 
-function mov_bump()
-	local tme=p_t
+function mov_bump(mob,ani_t)
+	local tme=ani_t
 
-	if p_t>0.5 then
-		tme=1-p_t
+	if ani_t>0.5 then
+		tme=1-ani_t
 	end
 	
-	p_ox=p_sox*tme
-	p_oy=p_soy*tme
+	mob.ox=mob.sox*tme
+	mob.oy=mob.soy*tme
 end
 
 function do_buffer_button()
@@ -105,7 +112,7 @@ end
 function do_button(button)
 	if button<0 then return end
 	if button<4 then
-		moveplayer(dirx[button+1],diry[button+1])
+		move_player(dir_x[button+1],dir_y[button+1])
 	end
 	--other buttons
 end
@@ -114,9 +121,9 @@ end
 function draw_game()
 	cls(0)
 	map()
-	drawspr(getframe(p_ani),p_x*8+p_ox,p_y*8+p_oy,10,p_flip)
+--	drawspr(getframe(p_ani),p_x*8+p_ox,p_y*8+p_oy,10,p_flip)
 	for m in all(mobs) do
-		drawspr(getframe(m.ani),m.x*8,m.y*8,10,false)
+		draw_spr(get_frame(m.ani),m.x*8+m.ox,m.y*8+m.oy,10,m.flp)
 	end
 end
 
@@ -124,11 +131,11 @@ function draw_gameover()
 end
 -->8
 --tools
-function getframe(ani)
+function get_frame(ani)
 	return ani[flr(t/8)%#ani+1]
 end
 
-function drawspr(_spr,_x,_y,_c,_flip)
+function draw_spr(_spr,_x,_y,_c,_flip)
 	palt(0, false)
 	pal(6,_c)
 	spr(_spr,_x,_y,1,1,_flip)
@@ -141,72 +148,104 @@ end
 
 function oprint8(_t,_x,_y,_c,_c2)
 	for i=1,8 do
-		print(_t,_x+dirx[i],_y+diry[i],_c2)
+		print(_t,_x+dir_x[i],_y+dir_y[i],_c2)
 	end
 	print(_t,_x,_y,_c)
 end
 -->8
 --gameplay
 
-function moveplayer(dx,dy)
-	local destx,desty=p_x+dx,p_y+dy
-	local tle=mget(destx,desty)
+function move_player(dx,dy)
+	local dest_x,dest_y=p_mob.x+dx,p_mob.y+dy
+	local tle=mget(dest_x,dest_y)
 	
 	if dx<0 then 
-			p_flip=true
-		elseif dx>0 then 
-			p_flip=false
+			p_mob.flp=true
+	elseif dx>0 then 
+			p_mob.flp=false
 	end
 	
-	if fget(tle,0) then
-		--solid
-		p_sox,p_soy=dx*8,dy*8
-		p_ox,p_oy=0,0
+	if is_walkable(dest_x,dest_y,"checkmobs") then
+		sfx(63)
+		p_mob.x+=dx
+		p_mob.y+=dy
+		p_mob.sox,p_mob.soy=-dx*8,-dy*8
+		p_mob.ox,p_mob.oy=p_mob.sox,p_mob.soy
+		_upd=update_pturn
+		p_mob.mov=mov_walk
+	else
+			--solid
+		p_mob.sox,p_mob.soy=dx*8,dy*8
+		p_mob.ox,p_mob.oy=0,0
 		p_t=0
 		_upd=update_pturn
-		p_mov=mov_bump
-		if fget(tle,1) then
-			trig_bump(tle,destx,desty)
+		p_mob.mov=mov_bump
+		
+		local mob=get_mob(dest_x,dest_y)
+		if not mob then
+			if fget(tle,1) then
+				trig_bump(tle,dest_x,dest_y)
+			end
+		else
+			hit_mob(p_mob,mob)
 		end
-	else
-		sfx(63)
-		p_x+=dx
-		p_y+=dy
-		p_sox,p_soy=-dx*8,-dy*8
-		p_ox,p_oy=p_sox,p_soy
-		_upd=update_pturn
-		p_mov=mov_walk
 	end
 end
 
-function trig_bump(tle,destx,desty)
+function trig_bump(tle,dest_x,dest_y)
 	if tle==7 or tle==8 then
 		--vase
 		sfx(59)
-		mset(destx,desty,1)
+		mset(dest_x,dest_y,1)
 	elseif tle==10 or tle==12 then
 		--chest
 		sfx(61)
-		mset(destx,desty,tle-1)
+		mset(dest_x,dest_y,tle-1)
 	elseif tle==13 then
 		--door
 		sfx(62)
-		mset(destx,desty,1)
+		mset(dest_x,dest_y,1)
 	elseif tle==6 then
 		--sign
 		sfx(62)
 --		showmsg("hello world",120)
-		if destx==5 and desty==3 then
-			showmsg({"welcome to porklike","","climb the tower","to obtain the","golden kielbasa"})
-		elseif destx==9 and desty==4 then
-			showmsg({"you're almost there..."})
+		if dest_x==5 and dest_y==3 then
+			show_msg({"welcome to porklike","","climb the tower","to obtain the","golden kielbasa"})
+		elseif dest_x==9 and dest_y==4 then
+			show_msg({"you're almost there..."})
 		end
 	end
+end
+
+function get_mob(x,y)
+	for m in all(mobs) do
+		if m.x==x and m.y==y then
+			return m
+		end
+	end
+end
+
+function is_walkable(x,y,mode)
+	if mode==nil then mode="" end
+	if in_bounds(x,y) and not fget(mget(x,y),0) then
+		if mode=="checkmobs" then
+			return not get_mob(x,y)
+		end
+		return true
+	end
+end
+
+function in_bounds(x,y)
+	return not (x<0 or y<0 or x>15 or y>15)
+end
+
+function hit_mob(atk,def)
+	del(mobs,def)
 end
 -->8
 --ui
 
-function addwind(_x,_y,_w,_h,_txt)
+function add_wind(_x,_y,_w,_h,_txt)
 	local wind={x=_x,
 												y=_y,
 												w=_w,
@@ -216,7 +255,7 @@ function addwind(_x,_y,_w,_h,_txt)
 	return wind
 end
 
-function drawwinds()
+function draw_winds()
 	for w in all(winds) do
 		local wx,wy,ww,wh=w.x,w.y,w.w,w.h
 		rectfill2(wx,wy,ww,wh,0)
@@ -249,26 +288,40 @@ function drawwinds()
 	end
 end
 
-function showmsg(txt,dur)
+function show_msg(txt,dur)
 	local wid=(#txt+2)*4+7
-	local w=addwind(63-wid/2,50,wid,13,{" "..txt})
+	local w=add_wind(63-wid/2,50,wid,13,{" "..txt})
 	w.dur=dur
 end
 
-function showmsg(txt)
-	talkwnd=addwind(16,50,94,#txt*6+7,txt)
-	talkwnd.button=true
+function show_msg(txt)
+	talk_wnd=add_wind(16,50,94,#txt*6+7,txt)
+	talk_wnd.button=true
 end
 -->8
 --mobs
 
-function addmob(typ,mx,my)
+function add_mob(typ,mx,my)
 	local m={
 		x=mx,
 		y=my,
-		ani={192,193,194,195}
+		ox=0, --ofset(destination)
+		oy=0,
+		sox=0, --starting offset
+		soy=0,
+		flp=false,
+		mov=nil,
+		ani={}
 	}
+	
+--fill animation
+	for i=0,3 do
+		add(m.ani,mobs_ani[typ]+i)
+	end
+	
 	add(mobs,m)
+	
+	return m
 end
 __gfx__
 000000000000000060666060000000000000000000000000aaaaaaaa00aaa00000aaa00000000000000000000000000000aaa000a0aaa0a0a000000055555550
@@ -408,8 +461,8 @@ __map__
 0201010202020202020202020202010200000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 0201020202060c0a070702020202010200000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 0201010201010101080602020202010200000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-020201020f020202010801080202010200000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-02020102020202020d0201020202010200000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+020201020f010102010801080202010200000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+01010101010101020d0201020202010200000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 0202010202020202010201020201010200000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 020101010101010101020c0202010e0200000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 02020202020102020a0201020201010200000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
