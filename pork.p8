@@ -12,7 +12,6 @@ function _init()
 	mobs_los={4,4}
 	
 	t=0
-	p_ani={240,241,242,243}
 	dir_x={-1,1,0,0,1,1,-1,-1}
 	dir_y={0,0,-1,1,-1,1,1,-1}
 	
@@ -61,7 +60,7 @@ function start_game()
 	winds={}
 	talk_wnd=nil
 	floats={}
-	fog=blank_map(0)
+	fog=blank_map(1)
 	
 	hp_wind=add_wind(5,5,28,13,{})
 	
@@ -89,7 +88,7 @@ function update_pturn()
 	do_buffer_button()
 	p_t=min(p_t+0.125,1)
 	
-	p_mob.mov(p_mob,p_t)
+	p_mob:mov()
 	
 	if p_t==1 then
 --after player moved,move mobs
@@ -105,7 +104,7 @@ function update_ai_turn()
 	
 	for m in all(mobs) do
 		if m!=p_mob and m.mov then
-			m.mov(m,p_t)
+			m:mov()
 		end
 	end
 	
@@ -223,7 +222,7 @@ function do_fade()
 	local p,k_max,col,k=flr(mid(0,fade_perc,1)*100)
 	for j=1,15 do
 		col=j
-		k_max=flr((p+(j*1.46))/22)
+		k_max=flr((p+j*1.46)/22)
 		for k=1,k_max do
 			col=dpal[col]
 		end
@@ -282,15 +281,15 @@ function move_player(dx,dy)
 		--solid
 		mob_bump(p_mob,dx,dy)
 		local mob=get_mob(dest_x,dest_y)
-		if not mob then
+		if mob then
+			--mob
+			sfx(58)
+			hit_mob(p_mob,mob)
+		else
 			if fget(tle,1) then
 				--obstacle
 				trig_bump(tle,dest_x,dest_y)
 			end
-		else
-			--mob
-			sfx(58)
-			hit_mob(p_mob,mob)
 		end
 	end
 	p_t=0
@@ -332,7 +331,7 @@ function get_mob(x,y)
 end
 
 function is_walkable(x,y,mode)
-	if mode==nil then mode="" end
+	local mode=mode or ""
 	if in_bounds(x,y) then
 		local tle=mget(x,y)
 		if mode=="sight" then
@@ -383,23 +382,21 @@ function los(x1,y1,x2,y2)
 	
 	dx=abs(x1-x2)
 	sx=(x2-x1)/dx
-	
 	dy=abs(y1-y2)
 	sy=(y2-y1)/dy
-
-	local err,e2=dx-dy,nil
+	
+	local err,e2=dx-dy
 	
 	while not(x1==x2 and y1==y2) do
 		if not first and not is_walkable(x1,y1,"sight") then return false end
-		first=false
-		e2=err+err
+		first,e2=false,err*2
 		if e2>-dy then
-			err=err-dy
-			x1=x1+sx
+			err-=dy
+			x1+=sx
 		end
 		if e2<dx then
-			err=err+dx
-			y1=y1+sy
+			err-=dx
+			y1+=sy
 		end
 	end
 	return true
@@ -409,7 +406,7 @@ function unfog()
 	local px,py=p_mob.x,p_mob.y
 	for x=0,15 do
 		for y=0,15 do
-			if dist(px,py,x,y)<=p_mob.los and los(px,py,x,y) then
+			if fog[x][y]==1 and dist(px,py,x,y)<=p_mob.los and los(px,py,x,y) then
 				unfog_tile(x,y)
 			end
 		end
@@ -456,7 +453,7 @@ function draw_winds()
 		end
 		
 		clip()
-		if w.dur!=nil then
+		if w.dur then
 			w.dur-=1
 			if w.dur<=0 then
 				local dif=w.h/4
@@ -560,25 +557,24 @@ function mob_bump(m,dx,dy)
 end
 
 function mob_flip(m,dx)
-	if dx<0 then 
-		m.flp=true
-	elseif dx>0 then 
-		m.flp=false
-	end
+	m.flp=dx==0 and m.flp or dx<0
+--	if dx<0 then 
+--		m.flp=true
+--	elseif dx>0 then 
+--		m.flp=false
+--	end
 end
 
-function mov_walk(mob,ani_t)
-	mob.ox=mob.sox*(1-ani_t)
-	mob.oy=mob.soy*(1-ani_t)
+function mov_walk(self)
+	local tme=1-p_t
+	self.ox=self.sox*tme
+	self.oy=self.soy*tme
 end
 
-function mov_bump(mob,ani_t)
-	local tme=ani_t
-	if ani_t>0.5 then
-		tme=1-ani_t
-	end
-	mob.ox=mob.sox*tme
-	mob.oy=mob.soy*tme
+function mov_bump(self)
+	local tme=p_t>0.5 and 1-p_t or p_t
+	self.ox=self.sox*tme
+	self.oy=self.soy*tme
 end
 
 function do_ai()
